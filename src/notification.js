@@ -1,4 +1,5 @@
 import { loadChatId, sendTelegram } from './telegram.js';
+import { getQuota } from './quota.js';
 
 export function finalResponse(branch, startLeafId) {
   const index = branch.findIndex((entry) => entry.id === startLeafId);
@@ -26,8 +27,10 @@ export function registerNotifications(pi, agentDir, token, fetchImpl = fetch) {
     const chatId = loadChatId(agentDir);
     if (!chatId || !response) return;
     try {
+      const model = ctx.modelRegistry?.find(response.provider, response.modelId);
+      const quota = await getQuota(model, ctx.modelRegistry, fetchImpl);
       await sendTelegram(token, chatId,
-        formatNotification(new Date().toISOString(), response, 'Quota non disponibile'), fetchImpl);
+        formatNotification(new Date().toISOString(), response, quota), fetchImpl);
     } catch {
       if (ctx.hasUI) ctx.ui.notify('Telegram delivery failed; check the bot connection', 'error');
       else console.error('Telegram delivery failed; check the bot connection');
