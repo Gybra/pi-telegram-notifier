@@ -91,6 +91,20 @@ test('delivery errors notify in TUI but never throw or leak credentials', async 
   } finally { state.cleanup(); }
 });
 
+test('model lookup failure does not suppress the final notification', async () => {
+  const state = runtime([message('user', 'user', 'ask')]);
+  state.ctx.modelRegistry = { find: () => { throw new Error('registry unavailable'); } };
+  try {
+    await state.handlers.get('agent_start')({}, state.ctx);
+    state.entries.push(assistant('reply', 'answer despite lookup failure'));
+    await state.handlers.get('agent_settled')({}, state.ctx);
+    assert.equal(state.sent.length, 1);
+    assert.match(state.sent[0], /answer despite lookup failure/);
+    assert.match(state.sent[0], /Quota unavailable/);
+    assert.deepEqual(state.notices, []);
+  } finally { state.cleanup(); }
+});
+
 test('non-interactive print mode still sends the response', async () => {
   const state = runtime([message('user', 'user', 'ask')], 'print');
   try {

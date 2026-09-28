@@ -132,6 +132,16 @@ test('xAI OAuth reports remaining Grok weekly subscription credits, not prepaid 
   }), 'Remaining quota: 7d 70%');
 });
 
+test('xAI missing or empty usage data cannot be treated as 100% remaining', async () => {
+  const oauth = { ...registry, isUsingOAuth: () => true };
+  for (const productUsage of [undefined, []]) {
+    assert.equal(await getQuota(models.xai, oauth, async () => json({ config: {
+      currentPeriod: { type: 'USAGE_PERIOD_TYPE_WEEKLY', start: '2026-09-28T00:00:00Z', end: '2026-10-05T00:00:00Z' },
+      productUsage,
+    } })), 'Quota unavailable');
+  }
+});
+
 test('new quota endpoints fail closed without the right login or a valid model allowance', async () => {
   const noRequest = async () => { throw new Error('must not send credential'); };
   for (const provider of ['anthropic', 'xai']) {
