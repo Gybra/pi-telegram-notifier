@@ -1,21 +1,20 @@
 # pi-telegram-notifier
 
-Send the **final** response of each Pi agent run to a paired private Telegram chat. Each notification contains a UTC timestamp, provider, full response text, and the **actual** remaining provider balance when it can be queried. Telegram metadata (provider and quota) is in English; the agent's response is forwarded verbatim in its original language. Intermediate tool calls do not trigger messages.
+Send the **final** response of each Pi agent run to a paired private Telegram chat. Each notification contains a UTC timestamp, device hostname, provider, full response text, and the **actual** remaining provider balance when it can be queried. Telegram metadata (provider and quota) is in English; the agent's response is forwarded verbatim in its original language. Intermediate tool calls do not trigger messages.
 
 ## Install and configure
 
-Requires Node.js 22.19+ and [Pi](https://pi.dev). Create a Telegram bot using [@BotFather](https://t.me/BotFather), then set its token **outside the repository** before starting Pi:
+Requires Node.js 22.19+ and [Pi](https://pi.dev). Install the published package, create a Telegram bot using [@BotFather](https://t.me/BotFather), and set its token **outside the repository** before starting Pi:
 
 ```sh
+pi install npm:pi-telegram-notifier
 export PI_TELEGRAM_BOT_TOKEN='your-bot-token'
-pi -e .                       # test this checkout as a Pi package
-# Later, after public release: pi install npm:pi-telegram-notifier
-# Or: pi install git:github.com/Gybra/pi-telegram-notifier
+pi
 ```
 
-In Pi run `/telegram-pair`. Within five minutes send **`/start <code>`** to your bot in a private Telegram chat using the displayed one-time code. The extension stores only the numeric chat ID in `~/.pi/agent/pi-telegram-notifier.json` (or `$PI_CODING_AGENT_DIR/pi-telegram-notifier.json`), with mode 0600. To switch chats, run `/telegram-pair` again; the existing chat stays paired if pairing fails. The bot needs to receive messages via `getUpdates` during pairing: a webhook or another updates consumer must be disconnected first. There is no always-on polling after pairing.
+If Pi is already running, run `/reload` after installing the package (restart Pi if you just set the token). If you previously installed a local checkout, run `pi list`, then `pi remove /absolute/path/to/pi-telegram-notifier` to avoid loading both copies. To get future releases, run `pi update npm:pi-telegram-notifier`. In Pi run `/telegram-pair`. Within five minutes send **`/start <code>`** to your bot in a private Telegram chat using the displayed one-time code. The extension stores only the numeric chat ID in `~/.pi/agent/pi-telegram-notifier.json` (or `$PI_CODING_AGENT_DIR/pi-telegram-notifier.json`), with mode 0600. To switch chats, run `/telegram-pair` again; the existing chat stays paired if pairing fails. The bot needs to receive messages via `getUpdates` during pairing: a webhook or another updates consumer must be disconnected first. There is no always-on polling after pairing.
 
-**Privacy:** final agent responses are sent in full to Telegram. They can contain sensitive text; only use this package if that is acceptable for your projects and Telegram chat. Bot and provider tokens are not stored in the package or sent as message text. Telegram Bot API uses the bot token in the request URL; do not log outgoing URLs. Keep your shell environment and Pi credentials private. A lost or compromised Telegram bot token must be revoked with BotFather.
+**Privacy:** final agent responses and the device hostname are sent to Telegram. Responses can contain sensitive text; only use this package if that is acceptable for your projects and Telegram chat. Bot and provider tokens are not stored in the package or sent as message text. Telegram Bot API uses the bot token in the request URL; do not log outgoing URLs. Keep your shell environment and Pi credentials private. A lost or compromised Telegram bot token must be revoked with BotFather.
 
 ## Quota coverage
 
@@ -44,7 +43,7 @@ Telegram has a message-length limit; long responses are delivered in consecutive
 ```sh
 npm test
 npm pack --dry-run --json
-pi -e . --help
+pi --no-extensions -e . --help
 ```
 
-Read [AGENTS.md](AGENTS.md) before editing. Open contributions with tests for behavior changes and official provider documentation for balance integrations. MIT licensed; see [LICENSE](LICENSE). CI runs tests and packaging checks. Publishing is deliberately manual: create the public GitHub repository, then publish the npm package with the `pi-package` keyword to make it eligible for the [Pi package gallery](https://pi.dev/packages). No action here pushes, publishes, or handles real credentials.
+Read [AGENTS.md](AGENTS.md) before editing. Open contributions with tests for behavior changes and official provider documentation for balance integrations. MIT licensed; see [LICENSE](LICENSE). CI runs tests and packaging checks. The published npm package includes the `pi-package` keyword for the [Pi package gallery](https://pi.dev/packages). New versions are released manually; CI does not publish packages or handle real credentials.

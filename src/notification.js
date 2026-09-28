@@ -1,3 +1,4 @@
+import { hostname } from 'node:os';
 import { loadChatId, sendTelegram } from './telegram.js';
 import { getQuota } from './quota.js';
 
@@ -12,7 +13,7 @@ export function finalResponse(branch, startLeafId) {
 }
 
 export function formatNotification(timestamp, response, quota) {
-  return `${timestamp}\nProvider: ${response.provider}\n${quota}\n\n${response.text}`;
+  return `${timestamp}\nDevice: ${hostname()}\nProvider: ${response.provider}\n${quota}\n\n${response.text}`;
 }
 
 export function registerNotifications(pi, agentDir, token, fetchImpl = fetch) {
