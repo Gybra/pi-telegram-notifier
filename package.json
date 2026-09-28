@@ -1,6 +1,6 @@
 {
   "name": "pi-telegram-notifier",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Telegram notifications for final Pi agent responses and provider balances",
   "type": "module",
   "license": "MIT",
