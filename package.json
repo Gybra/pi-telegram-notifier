@@ -1,14 +1,16 @@
 {
   "name": "pi-telegram-notifier",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Telegram notifications for final Pi agent responses and provider balances",
   "type": "module",
   "license": "MIT",
   "engines": { "node": ">=22.19.0" },
   "keywords": ["pi-package", "pi", "telegram", "notifications"],
   "files": ["extensions", "src", "README.md", "LICENSE", "docs/providers.md"],
-  "scripts": { "test": "node --test" },
+  "imports": { "#src/*": "./src/*.ts" },
+  "scripts": { "test": "node --test", "typecheck": "tsc --noEmit" },
   "pi": { "extensions": ["./extensions/index.ts"] },
   "peerDependencies": { "@earendil-works/pi-coding-agent": "*" },
+  "devDependencies": { "@types/node": "22.20.4", "typescript": "5.9.3" },
   "repository": { "type": "git", "url": "git+https://github.com/Gybra/pi-telegram-notifier.git" }
 }

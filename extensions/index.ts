@@ -2,8 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { pairChat, saveChatId } from '../src/telegram.js';
-import { registerNotifications } from '../src/notification.js';
+import { pairChat, saveChatId } from '#src/telegram';
+import { registerNotifications } from '#src/notification';
 
 const agentDir = () => process.env.PI_CODING_AGENT_DIR || join(homedir(), '.pi', 'agent');
 

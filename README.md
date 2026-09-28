@@ -41,6 +41,8 @@ Telegram has a message-length limit; long responses are delivered in consecutive
 ## Develop and release
 
 ```sh
+npm ci
+npm run typecheck
 npm test
 npm pack --dry-run --json
 pi --no-extensions -e . --help

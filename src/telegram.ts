@@ -2,18 +2,18 @@ import { mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
-const stateFile = (agentDir) => join(agentDir, 'pi-telegram-notifier.json');
+const stateFile = (agentDir: string) => join(agentDir, 'pi-telegram-notifier.json');
 
-export function loadChatId(agentDir) {
+export function loadChatId(agentDir: string): number | undefined {
   try {
-    const id = JSON.parse(readFileSync(stateFile(agentDir), 'utf8')).chatId;
-    return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+    const id: unknown = JSON.parse(readFileSync(stateFile(agentDir), 'utf8')).chatId;
+    return typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? id : undefined;
   } catch {
     return undefined;
   }
 }
 
-export function saveChatId(agentDir, chatId) {
+export function saveChatId(agentDir: string, chatId: number): void {
   if (!Number.isSafeInteger(chatId) || chatId <= 0) throw new Error('Invalid private chat ID');
   mkdirSync(agentDir, { recursive: true, mode: 0o700 });
   const temporary = `${stateFile(agentDir)}.${randomBytes(8).toString('hex')}`;
@@ -21,7 +21,7 @@ export function saveChatId(agentDir, chatId) {
   renameSync(temporary, stateFile(agentDir));
 }
 
-export async function pairChat(token, code, fetchImpl = fetch, now = Date.now) {
+export async function pairChat(token: string, code: string, fetchImpl: typeof fetch = fetch, now: () => number = Date.now): Promise<number> {
   const expires = now() + 300_000;
   let offset = 0;
   while (now() < expires) {
@@ -51,9 +51,9 @@ export async function pairChat(token, code, fetchImpl = fetch, now = Date.now) {
   throw new Error('Telegram pairing code expired');
 }
 
-export async function sendTelegram(token, chatId, text, fetchImpl = fetch) {
+export async function sendTelegram(token: string, chatId: number, text: string, fetchImpl: typeof fetch = fetch): Promise<void> {
   let part = '';
-  const chunks = [];
+  const chunks: string[] = [];
   for (const character of text) {
     if (part.length + character.length > 4096) {
       chunks.push(part);

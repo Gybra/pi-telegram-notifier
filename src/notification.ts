@@ -1,8 +1,11 @@
 import { hostname } from 'node:os';
-import { loadChatId, sendTelegram } from './telegram.js';
-import { getQuota } from './quota.js';
+import type { ExtensionAPI, SessionEntry } from '@earendil-works/pi-coding-agent';
+import { loadChatId, sendTelegram } from '#src/telegram';
+import { getQuota } from '#src/quota';
 
-export function finalResponse(branch, startLeafId) {
+type FinalResponse = { text: string; provider: string; modelId: string };
+
+export function finalResponse(branch: SessionEntry[], startLeafId: string | null): FinalResponse | undefined {
   const index = startLeafId === null ? -1 : branch.findIndex((entry) => entry.id === startLeafId);
   if (index < 0 && startLeafId !== null) return undefined;
   const latest = branch.slice(index + 1).filter((entry) => entry.type === 'message').at(-1)?.message;
@@ -12,12 +15,12 @@ export function finalResponse(branch, startLeafId) {
   return { text, provider: latest.provider, modelId: latest.model };
 }
 
-export function formatNotification(timestamp, response, quota) {
+export function formatNotification(timestamp: string, response: FinalResponse, quota: string): string {
   return `${timestamp}\nDevice: ${hostname()}\nProvider: ${response.provider}\n${quota}\n\n${response.text}`;
 }
 
-export function registerNotifications(pi, agentDir, token, fetchImpl = fetch) {
-  let startLeafId;
+export function registerNotifications(pi: ExtensionAPI, agentDir: string, token: string | undefined, fetchImpl: typeof fetch = fetch): void {
+  let startLeafId: string | null | undefined;
   pi.on('agent_start', (_event, ctx) => {
     startLeafId = ctx.sessionManager.getLeafId();
   });
@@ -27,7 +30,7 @@ export function registerNotifications(pi, agentDir, token, fetchImpl = fetch) {
     startLeafId = undefined;
     const chatId = loadChatId(agentDir);
     if (!chatId || !response) return;
-    let quota;
+    let quota: string;
     try {
       const model = ctx.modelRegistry?.find(response.provider, response.modelId);
       quota = await getQuota(model, ctx.modelRegistry, fetchImpl);
