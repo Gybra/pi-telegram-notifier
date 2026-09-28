@@ -42,7 +42,7 @@ test('only the final completed response since agent_start is sent once', async (
     assert.equal(state.sent.length, 1);
     assert.match(state.sent[0], /full answer/);
     assert.match(state.sent[0], /openrouter/);
-    assert.match(state.sent[0], /Quota non disponibile/);
+    assert.match(state.sent[0], /Quota unavailable/);
     assert.match(state.sent[0], /\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z/);
   } finally { state.cleanup(); }
 });
@@ -72,9 +72,10 @@ test('no stale answer is sent on failure or missing response', async () => {
 });
 
 test('format includes full text including multiple text blocks and provider', () => {
-  const branch = [message('base', 'user', 'ask'), message('thought', 'assistant', [{ type: 'thinking', thinking: 'private' }, { type: 'text', text: 'hello' }, { type: 'text', text: ' world' }])];
-  assert.deepEqual(finalResponse(branch, 'base'), { text: 'hello world', provider: 'openrouter', modelId: 'model-v1' });
-  assert.match(formatNotification('2026-09-28T00:00:00.000Z', finalResponse(branch, 'base'), 'Quota non disponibile'), /hello world/);
+  const branch = [message('base', 'user', 'ask'), message('thought', 'assistant', [{ type: 'thinking', thinking: 'private' }, { type: 'text', text: 'Ciao' }, { type: 'text', text: ' mondo' }])];
+  assert.deepEqual(finalResponse(branch, 'base'), { text: 'Ciao mondo', provider: 'openrouter', modelId: 'model-v1' });
+  assert.equal(formatNotification('2026-09-28T00:00:00.000Z', finalResponse(branch, 'base'), 'Quota unavailable'),
+    '2026-09-28T00:00:00.000Z\nProvider: openrouter\nQuota unavailable\n\nCiao mondo');
 });
 
 test('delivery errors notify in TUI but never throw or leak credentials', async () => {
