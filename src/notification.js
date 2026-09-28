@@ -2,8 +2,8 @@ import { loadChatId, sendTelegram } from './telegram.js';
 import { getQuota } from './quota.js';
 
 export function finalResponse(branch, startLeafId) {
-  const index = branch.findIndex((entry) => entry.id === startLeafId);
-  if (index < 0) return undefined;
+  const index = startLeafId === null ? -1 : branch.findIndex((entry) => entry.id === startLeafId);
+  if (index < 0 && startLeafId !== null) return undefined;
   const latest = branch.slice(index + 1).filter((entry) => entry.type === 'message').at(-1)?.message;
   if (latest?.role !== 'assistant' || !['stop', 'length'].includes(latest.stopReason)) return undefined;
   const text = latest.content.filter((item) => item.type === 'text').map((item) => item.text).join('');

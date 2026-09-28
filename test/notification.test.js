@@ -47,6 +47,18 @@ test('only the final completed response since agent_start is sent once', async (
   } finally { state.cleanup(); }
 });
 
+test('first response in an empty Pi session is delivered', async () => {
+  const state = runtime([]);
+  state.ctx.sessionManager.getLeafId = () => null;
+  try {
+    await state.handlers.get('agent_start')({}, state.ctx);
+    state.entries.push(message('user', 'user', 'question'), assistant('reply', 'first answer'));
+    await state.handlers.get('agent_settled')({}, state.ctx);
+    assert.equal(state.sent.length, 1);
+    assert.match(state.sent[0], /first answer/);
+  } finally { state.cleanup(); }
+});
+
 test('no stale answer is sent on failure or missing response', async () => {
   const state = runtime([assistant('old', 'old answer'), message('user', 'user', 'new prompt')]);
   try {
