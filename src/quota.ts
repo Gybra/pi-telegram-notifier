@@ -1,6 +1,10 @@
+import type { ModelRegistry } from '@earendil-works/pi-coding-agent';
+
 const UNAVAILABLE = 'Quota unavailable';
 
-const providers = {
+type Model = NonNullable<ReturnType<ModelRegistry['find']>>;
+
+const providers: Record<string, { origin: string; url: string }> = {
   openrouter: { origin: 'https://openrouter.ai', url: 'https://openrouter.ai/api/v1/credits' },
   'openai-codex': { origin: 'https://chatgpt.com', url: 'https://chatgpt.com/backend-api/wham/usage' },
   deepseek: { origin: 'https://api.deepseek.com', url: 'https://api.deepseek.com/user/balance' },
@@ -12,19 +16,19 @@ const providers = {
   xai: { origin: 'https://api.x.ai', url: 'https://cli-chat-proxy.grok.com/v1/billing?format=credits' },
 };
 
-function remainingPercent(used) {
+function remainingPercent(used: unknown): number | undefined {
   return typeof used === 'number' && Number.isFinite(used) && used >= 0 && used <= 100 ? 100 - used : undefined;
 }
 
-export async function getQuota(model, modelRegistry, fetchImpl = fetch) {
+export async function getQuota(model: Model | undefined, modelRegistry: Pick<ModelRegistry, 'getApiKeyAndHeaders' | 'isUsingOAuth'> | undefined, fetchImpl: typeof fetch = fetch): Promise<string> {
   const provider = model && providers[model.provider];
   if (!provider) return UNAVAILABLE;
   try {
     if (new URL(model.baseUrl).origin !== provider.origin) return UNAVAILABLE;
-    if (['anthropic', 'xai'].includes(model.provider) && !modelRegistry.isUsingOAuth(model)) return UNAVAILABLE;
-    const auth = await modelRegistry.getApiKeyAndHeaders(model);
-    if (!auth.ok || !auth.apiKey || (auth.baseUrl && new URL(auth.baseUrl).origin !== provider.origin)) return UNAVAILABLE;
-    const headers = { Authorization: ['zai', 'zai-coding-cn'].includes(model.provider) ? auth.apiKey : `Bearer ${auth.apiKey}` };
+    if (['anthropic', 'xai'].includes(model.provider) && !modelRegistry?.isUsingOAuth(model)) return UNAVAILABLE;
+    const auth = await modelRegistry?.getApiKeyAndHeaders(model);
+    if (!auth?.ok || !auth.apiKey || (auth.baseUrl && new URL(auth.baseUrl).origin !== provider.origin)) return UNAVAILABLE;
+    const headers: Record<string, string> = { Authorization: ['zai', 'zai-coding-cn'].includes(model.provider) ? auth.apiKey : `Bearer ${auth.apiKey}` };
     if (model.provider === 'anthropic') {
       headers['anthropic-beta'] = 'oauth-2025-04-20';
       headers['anthropic-version'] = '2023-06-01';
@@ -43,7 +47,7 @@ export async function getQuota(model, modelRegistry, fetchImpl = fetch) {
     const data = await response.json();
     if (['zai', 'zai-coding-cn'].includes(model.provider)) {
       if (data.success === false || ![undefined, 0, 200].includes(data.code)) return UNAVAILABLE;
-      const used = data.data?.limits?.find((limit) => limit.type === 'TOKENS_LIMIT')?.percentage;
+      const used = data.data?.limits?.find((limit: { type: string; percentage: number }) => limit.type === 'TOKENS_LIMIT')?.percentage;
       const remaining = remainingPercent(used);
       return remaining === undefined ? UNAVAILABLE : `Remaining quota: 5h ${remaining}%`;
     }
@@ -85,7 +89,7 @@ export async function getQuota(model, modelRegistry, fetchImpl = fetch) {
     }
     if (model.provider === 'deepseek') {
       if (!Array.isArray(data.balance_infos) || !data.balance_infos.length) return UNAVAILABLE;
-      const balances = data.balance_infos.map(({ currency, total_balance }) => {
+      const balances = data.balance_infos.map(({ currency, total_balance }: { currency: string; total_balance: string }) => {
         if (!['CNY', 'USD'].includes(currency) || typeof total_balance !== 'string' ||
             !/^\d+(?:\.\d+)?$/.test(total_balance)) return undefined;
         return `${total_balance} ${currency}`;
