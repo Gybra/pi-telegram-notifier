@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { finalResponse, formatNotification, registerNotifications } from '../src/notification.js';
 import { saveChatId } from '../src/telegram.js';
@@ -42,6 +42,7 @@ test('only the final completed response since agent_start is sent once', async (
     assert.equal(state.sent.length, 1);
     assert.match(state.sent[0], /full answer/);
     assert.match(state.sent[0], /openrouter/);
+    assert.ok(state.sent[0].includes(`Device: ${hostname()}\n`));
     assert.match(state.sent[0], /Quota unavailable/);
     assert.match(state.sent[0], /\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z/);
   } finally { state.cleanup(); }
@@ -75,7 +76,7 @@ test('format includes full text including multiple text blocks and provider', ()
   const branch = [message('base', 'user', 'ask'), message('thought', 'assistant', [{ type: 'thinking', thinking: 'private' }, { type: 'text', text: 'Ciao' }, { type: 'text', text: ' mondo' }])];
   assert.deepEqual(finalResponse(branch, 'base'), { text: 'Ciao mondo', provider: 'openrouter', modelId: 'model-v1' });
   assert.equal(formatNotification('2026-09-28T00:00:00.000Z', finalResponse(branch, 'base'), 'Quota unavailable'),
-    '2026-09-28T00:00:00.000Z\nProvider: openrouter\nQuota unavailable\n\nCiao mondo');
+    `2026-09-28T00:00:00.000Z\nDevice: ${hostname()}\nProvider: openrouter\nQuota unavailable\n\nCiao mondo`);
 });
 
 test('delivery errors notify in TUI but never throw or leak credentials', async () => {
