@@ -2,6 +2,7 @@ const UNAVAILABLE = 'Quota non disponibile';
 
 const providers = {
   openrouter: ['https://openrouter.ai', 'https://openrouter.ai/api/v1/credits'],
+  'openai-codex': ['https://chatgpt.com', 'https://chatgpt.com/backend-api/wham/usage'],
   deepseek: ['https://api.deepseek.com', 'https://api.deepseek.com/user/balance'],
   moonshotai: ['https://api.moonshot.ai', 'https://api.moonshot.ai/v1/users/me/balance'],
   'moonshotai-cn': ['https://api.moonshot.cn', 'https://api.moonshot.cn/v1/users/me/balance'],
@@ -13,13 +14,30 @@ export async function getQuota(model, modelRegistry, fetchImpl = fetch) {
   try {
     if (new URL(model.baseUrl).origin !== provider[0]) return UNAVAILABLE;
     const auth = await modelRegistry.getApiKeyAndHeaders(model);
-    if (!auth.ok || !auth.apiKey) return UNAVAILABLE;
+    if (!auth.ok || !auth.apiKey || (auth.baseUrl && new URL(auth.baseUrl).origin !== provider[0])) return UNAVAILABLE;
+    const headers = { Authorization: `Bearer ${auth.apiKey}` };
+    if (model.provider === 'openai-codex') {
+      const payload = JSON.parse(Buffer.from(auth.apiKey.split('.')[1], 'base64url').toString('utf8'));
+      const accountId = payload['https://api.openai.com/auth']?.chatgpt_account_id;
+      if (typeof accountId !== 'string' || !accountId) return UNAVAILABLE;
+      headers['ChatGPT-Account-Id'] = accountId;
+    }
     const response = await fetchImpl(provider[1], {
-      headers: { Authorization: `Bearer ${auth.apiKey}` },
+      headers,
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return UNAVAILABLE;
     const data = await response.json();
+    if (model.provider === 'openai-codex') {
+      const windows = [data.rate_limit?.primary_window, data.rate_limit?.secondary_window].filter(Boolean);
+      if (!windows.length) return UNAVAILABLE;
+      const remaining = windows.map(({ used_percent: used, limit_window_seconds: seconds }) => {
+        if (!Number.isFinite(used) || used < 0 || used > 100 || !Number.isSafeInteger(seconds) || seconds <= 0) return undefined;
+        const period = seconds % 86400 === 0 ? `${seconds / 86400}g` : seconds % 3600 === 0 ? `${seconds / 3600}h` : `${seconds / 60}m`;
+        return `${period} ${100 - used}%`;
+      });
+      return remaining.every(Boolean) ? `Quota residua: ${remaining.join(', ')}` : UNAVAILABLE;
+    }
     if (model.provider === 'openrouter') {
       const total = data.data?.total_credits;
       const used = data.data?.total_usage;

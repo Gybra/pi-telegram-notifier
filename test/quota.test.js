@@ -9,6 +9,7 @@ import { saveChatId } from '../src/telegram.js';
 
 const models = {
   openrouter: { provider: 'openrouter', id: 'test', baseUrl: 'https://openrouter.ai/api' },
+  'openai-codex': { provider: 'openai-codex', id: 'gpt-5.6', baseUrl: 'https://chatgpt.com/backend-api' },
   deepseek: { provider: 'deepseek', id: 'test', baseUrl: 'https://api.deepseek.com' },
   moonshotai: { provider: 'moonshotai', id: 'test', baseUrl: 'https://api.moonshot.ai/v1' },
   'moonshotai-cn': { provider: 'moonshotai-cn', id: 'test', baseUrl: 'https://api.moonshot.cn/v1' },
@@ -23,6 +24,34 @@ test('OpenRouter credits are actual account credits minus usage, not a key limit
     return json({ data: { total_credits: 100.5, total_usage: 25.75 } });
   };
   assert.equal(await getQuota(models.openrouter, registry, request), 'Crediti residui: 74.75 USD');
+});
+
+test('Codex OAuth shows remaining five-hour and weekly subscription quotas', async () => {
+  const payload = Buffer.from(JSON.stringify({ 'https://api.openai.com/auth': { chatgpt_account_id: 'acct-test' } })).toString('base64url');
+  const token = `e30.${payload}.signature`;
+  const oauth = { getApiKeyAndHeaders: async () => ({ ok: true, apiKey: token }) };
+  assert.equal(await getQuota(models['openai-codex'], oauth, async (url, options) => {
+    assert.equal(url, 'https://chatgpt.com/backend-api/wham/usage');
+    assert.equal(options.headers.Authorization, `Bearer ${token}`);
+    assert.equal(options.headers['ChatGPT-Account-Id'], 'acct-test');
+    return json({ plan_type: 'plus', rate_limit: { allowed: true, limit_reached: false,
+      primary_window: { used_percent: 23, limit_window_seconds: 18000 },
+      secondary_window: { used_percent: 60, limit_window_seconds: 604800 },
+    } });
+  }), 'Quota residua: 5h 77%, 7g 40%');
+});
+
+test('Codex invalid token, denied endpoint or invalid quota cannot show a percentage', async () => {
+  const model = models['openai-codex'];
+  const noRequest = async () => { throw new Error('must not send invalid credentials'); };
+  assert.equal(await getQuota(model, registry, noRequest), 'Quota non disponibile');
+  const payload = Buffer.from(JSON.stringify({ 'https://api.openai.com/auth': { chatgpt_account_id: 'acct-test' } })).toString('base64url');
+  const oauth = { getApiKeyAndHeaders: async () => ({ ok: true, apiKey: `e30.${payload}.sig` }) };
+  assert.equal(await getQuota(model, oauth, async () => json({}, 401)), 'Quota non disponibile');
+  assert.equal(await getQuota(model, oauth, async () => json({ rate_limit: {
+    primary_window: { used_percent: 130, limit_window_seconds: 18000 },
+  } })), 'Quota non disponibile');
+  assert.equal(await getQuota({ ...model, baseUrl: 'https://proxy.example' }, oauth, noRequest), 'Quota non disponibile');
 });
 
 test('DeepSeek reports real available balance for each currency without conversion', async () => {

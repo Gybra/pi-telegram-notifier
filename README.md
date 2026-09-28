@@ -24,6 +24,7 @@ Supported balance endpoints (using Pi's resolved credential for the provider/mod
 | Provider | Remaining amount |
 | --- | --- |
 | OpenRouter | Account credits in USD via `/api/v1/credits`. **Requires a management key**; ordinary model API keys get HTTP 403, so the field says `Quota non disponibile`. Per-key spending limits are deliberately not shown as account balance. |
+| OpenAI Codex (`openai-codex`) | Remaining subscription quota for both usage windows (usually 5h and 7 days), using Pi's ChatGPT OAuth login. The endpoint is used by the official Codex client but is **not a stable public API**; if it changes, the field says `Quota non disponibile`. |
 | DeepSeek | Available CNY/USD balances via `/user/balance`. |
 | Moonshot AI (global / China) | Available USD / CNY balance via `/v1/users/me/balance`. |
 
