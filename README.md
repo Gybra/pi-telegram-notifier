@@ -1,6 +1,6 @@
 # pi-telegram-notifier
 
-Send the **final** response of each Pi agent run to a paired private Telegram chat. Each notification contains a UTC timestamp, provider, full response text, and the **actual** remaining provider balance when it can be queried. Intermediate tool calls do not trigger messages.
+Send the **final** response of each Pi agent run to a paired private Telegram chat. Each notification contains a UTC timestamp, provider, full response text, and the **actual** remaining provider balance when it can be queried. Telegram metadata (provider and quota) is in English; the agent's response is forwarded verbatim in its original language. Intermediate tool calls do not trigger messages.
 
 ## Install and configure
 
@@ -19,16 +19,23 @@ In Pi run `/telegram-pair`. Within five minutes send **`/start <code>`** to your
 
 ## Quota coverage
 
-Supported balance endpoints (using Pi's resolved credential for the provider/model):
+The **quota/credit** field supports these Pi provider IDs (using the credential Pi resolves for the active model):
 
-| Provider | Remaining amount |
-| --- | --- |
-| OpenRouter | Account credits in USD via `/api/v1/credits`. **Requires a management key**; ordinary model API keys get HTTP 403, so the field says `Quota non disponibile`. Per-key spending limits are deliberately not shown as account balance. |
-| OpenAI Codex (`openai-codex`) | Remaining subscription quota for both usage windows (usually 5h and 7 days), using Pi's ChatGPT OAuth login. The endpoint is used by the official Codex client but is **not a stable public API**; if it changes, the field says `Quota non disponibile`. |
-| DeepSeek | Available CNY/USD balances via `/user/balance`. |
-| Moonshot AI (global / China) | Available USD / CNY balance via `/v1/users/me/balance`. |
+| Pi provider ID | Mode | Required credential | What is shown |
+| --- | --- | --- | --- |
+| `openai-codex` | Subscription | ChatGPT OAuth | Remaining 5h / 7d usage-window percentages; [official Codex client endpoint](https://github.com/openai/codex/blob/main/codex-rs/backend-client/src/client/rate_limit_resets.rs). |
+| `anthropic` | Subscription | Claude OAuth | Remaining 5h / 7d usage-window percentages; [private OAuth endpoint](https://github.com/openclaw/openclaw/blob/main/src/infra/provider-usage.fetch.claude.ts). |
+| `xai` | Subscription | Grok OAuth | Remaining weekly shared Grok credits percentage, **not** prepaid API credit; [official Grok client endpoint](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/src/extensions/billing.rs). |
+| `zai` | Subscription (Coding Plan) | Z.ai Coding Plan key | Remaining 5h **model** quota percentage; [Z.ai usage plugin endpoint](https://github.com/zai-org/zai-coding-plugins/blob/main/plugins/glm-plan-usage/skills/usage-query-skill/scripts/query-usage.mjs). Not the separate MCP tool quota. |
+| `zai-coding-cn` | Subscription (Coding Plan) | China Coding Plan key | Same model quota on `open.bigmodel.cn`. |
+| `openrouter` | API credit | **Management key** | Remaining account credits in USD; ordinary inference keys cannot access the credits endpoint (HTTP 403). Per-key spending limits are not account credit. |
+| `deepseek` | API credit | API key | Available CNY/USD balance via `/user/balance`. |
+| `moonshotai` | API credit | API key | Available USD balance via `/v1/users/me/balance`. |
+| `moonshotai-cn` | API credit | API key | Available CNY balance via `/v1/users/me/balance`. |
 
-All other providers, custom/proxied endpoints, inaccessible credentials, and failed or malformed lookups show `Quota non disponibile` **without blocking the notification**. Quota percentage is not inferred from context-window usage, token usage, or rate limits. Subscription providers without a documented, usable remaining-quota API cannot display a percentage. See [the 41-provider inventory](docs/providers.md) and official sources for the exact distinction.
+**Not supported as API credit:** an `openai` API key does not expose a verified remaining-balance endpoint; an `anthropic` API key does not expose its subscription quota **or** a verified remaining API credit; an `xai` API key does not expose Grok subscription quota or the prepaid API balance (the latter requires a separate management key and team ID); Z.ai pay-as-you-go keys may have no Coding Plan quota. None of the listed providers currently supports both subscription quota **and** API credit through this extension. Usage/cost reports and spending caps are **not** remaining credit.
+
+Pi resolves and refreshes provider credentials, including those saved in its `auth.json`; this extension does **not** read that file. The Codex, Claude, Grok and Z.ai quota endpoints above are not guaranteed stable public APIs. All other providers, custom/proxied endpoints, inaccessible credentials, and failed or malformed lookups show `Quota unavailable` **without blocking the notification**. Quota percentage is not inferred from context-window usage, token usage, or request rate limits. See [the 41-provider inventory](docs/providers.md) for sources and limitations.
 
 Telegram has a message-length limit; long responses are delivered in consecutive plain-text chunks. If delivery fails, Pi reports a generic failure without leaking message or credentials. Network requests have timeouts; Pi remains usable.
 
