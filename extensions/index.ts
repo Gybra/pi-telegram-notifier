@@ -15,13 +15,21 @@ export default function (pi: ExtensionAPI) {
       const tokenConfigured = !!process.env.PI_TELEGRAM_BOT_TOKEN;
       const paired = loadChatId(agentDir()) !== undefined;
       ctx.ui.notify([
-        'Telegram status',
-        `Bot token: ${tokenConfigured ? 'configured' : 'not configured'}`,
-        `Private chat: ${paired ? 'paired' : 'not paired'}`,
-        'Live connectivity: not checked',
-        !tokenConfigured ? 'Set PI_TELEGRAM_BOT_TOKEN and restart Pi.' : '',
-        !paired ? 'Run /telegram-pair to pair a private chat.' : '',
-      ].filter(Boolean).join('\n'), 'info');
+        'Telegram connection',
+        '',
+        'Configuration',
+        `Bot token: ${tokenConfigured ? 'Configured' : 'Not configured'}`,
+        `Private chat: ${paired ? 'Paired' : 'Not paired'}`,
+        '',
+        'Connectivity',
+        'Live check: Not performed',
+        ...(!tokenConfigured || !paired ? [
+          '',
+          'Next steps',
+          ...(!tokenConfigured ? ['Set PI_TELEGRAM_BOT_TOKEN and restart Pi.'] : []),
+          ...(!paired ? ['Run /telegram-pair to pair a private chat.'] : []),
+        ] : []),
+      ].join('\n'), 'info');
     },
   });
   pi.registerCommand('telegram-pair', {
@@ -29,16 +37,24 @@ export default function (pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       const token = process.env.PI_TELEGRAM_BOT_TOKEN;
       if (!token) {
-        ctx.ui.notify('Set PI_TELEGRAM_BOT_TOKEN before starting Pi', 'error');
+        ctx.ui.notify('Telegram pairing unavailable\n\nSet PI_TELEGRAM_BOT_TOKEN before starting Pi.', 'error');
         return;
       }
       const code = randomBytes(16).toString('hex');
-      ctx.ui.notify(`Send /start ${code} to your Telegram bot within 5 minutes`, 'info');
+      ctx.ui.notify([
+        'Pair Telegram',
+        '',
+        'In your private chat with the bot, send:',
+        '',
+        `/start ${code}`,
+        '',
+        'Code expires in 5 minutes.',
+      ].join('\n'), 'info');
       try {
         saveChatId(agentDir(), await pairChat(token, code));
-        ctx.ui.notify('Private Telegram chat paired', 'info');
+        ctx.ui.notify('Telegram paired\n\nPrivate chat linked successfully.', 'info');
       } catch (error) {
-        ctx.ui.notify(error instanceof Error ? error.message : 'Telegram pairing failed', 'error');
+        ctx.ui.notify(`Telegram pairing failed\n\n${error instanceof Error ? error.message : 'Telegram pairing failed'}`, 'error');
       }
     },
   });
