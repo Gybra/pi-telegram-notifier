@@ -12,7 +12,24 @@ export PI_TELEGRAM_BOT_TOKEN='your-bot-token'
 pi
 ```
 
-If Pi is already running, run `/reload` after installing the package (restart Pi if you just set the token). If you previously installed a local checkout, run `pi list`, then `pi remove /absolute/path/to/pi-telegram-notifier` to avoid loading both copies. To get future releases, run `pi update npm:pi-telegram-notifier`. In Pi run `/telegram-pair`. Use `/telegram-status` to see whether the bot token is configured and a private chat is paired; it reports local state and does not verify live Telegram connectivity. Within five minutes send **`/start <code>`** to your bot in a private Telegram chat using the displayed one-time code. The extension stores only the numeric chat ID in `~/.pi/agent/pi-telegram-notifier.json` (or `$PI_CODING_AGENT_DIR/pi-telegram-notifier.json`), with mode 0600. To switch chats, run `/telegram-pair` again; the existing chat stays paired if pairing fails. The bot needs to receive messages via `getUpdates` during pairing: a webhook or another updates consumer must be disconnected first. There is no always-on polling after pairing.
+### Update or reload Pi
+
+If Pi is already running, run `/reload` after installing the package (restart Pi if you just set the token). To update a published install later, run `pi update npm:pi-telegram-notifier`. If you previously installed a local checkout, run `pi list`, then `pi remove /absolute/path/to/pi-telegram-notifier` to avoid loading both copies.
+
+### Pair a private chat
+
+1. In Pi, run `/telegram-pair`.
+2. In a private chat, send the bot the displayed **`/start <code>`** within five minutes.
+
+During pairing, the bot must receive updates through `getUpdates`; disconnect any webhook or other updates consumer first. If pairing fails, the existing chat remains paired.
+
+### Check pairing status
+
+In Pi, run `/telegram-status` to see whether the bot token is configured and a private chat is paired. This reports saved local state; it does not check live Telegram connectivity.
+
+### Switch chats and pairing storage
+
+Run `/telegram-pair` again to switch chats. The extension stores only the numeric chat ID in `~/.pi/agent/pi-telegram-notifier.json` (or `$PI_CODING_AGENT_DIR/pi-telegram-notifier.json`), with mode 0600. Pairing uses `getUpdates` only during setup; there is no always-on polling afterward.
 
 **Privacy:** final agent responses and the device hostname are sent to Telegram. Responses can contain sensitive text; only use this package if that is acceptable for your projects and Telegram chat. Bot and provider tokens are not stored in the package or sent as message text. Telegram Bot API uses the bot token in the request URL; do not log outgoing URLs. Keep your shell environment and Pi credentials private. A lost or compromised Telegram bot token must be revoked with BotFather.
 
