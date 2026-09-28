@@ -3,10 +3,12 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { pairChat, saveChatId } from '../src/telegram.js';
+import { registerNotifications } from '../src/notification.js';
 
 const agentDir = () => process.env.PI_CODING_AGENT_DIR || join(homedir(), '.pi', 'agent');
 
 export default function (pi: ExtensionAPI) {
+  registerNotifications(pi, agentDir(), process.env.PI_TELEGRAM_BOT_TOKEN);
   pi.registerCommand('telegram-pair', {
     description: 'Pair a private Telegram chat with this Pi installation',
     handler: async (_args, ctx) => {
