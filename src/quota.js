@@ -1,15 +1,15 @@
 const UNAVAILABLE = 'Quota unavailable';
 
 const providers = {
-  openrouter: ['https://openrouter.ai', 'https://openrouter.ai/api/v1/credits'],
-  'openai-codex': ['https://chatgpt.com', 'https://chatgpt.com/backend-api/wham/usage'],
-  deepseek: ['https://api.deepseek.com', 'https://api.deepseek.com/user/balance'],
-  moonshotai: ['https://api.moonshot.ai', 'https://api.moonshot.ai/v1/users/me/balance'],
-  'moonshotai-cn': ['https://api.moonshot.cn', 'https://api.moonshot.cn/v1/users/me/balance'],
-  zai: ['https://api.z.ai', 'https://api.z.ai/api/monitor/usage/quota/limit'],
-  'zai-coding-cn': ['https://open.bigmodel.cn', 'https://open.bigmodel.cn/api/monitor/usage/quota/limit'],
-  anthropic: ['https://api.anthropic.com', 'https://api.anthropic.com/api/oauth/usage'],
-  xai: ['https://api.x.ai', 'https://cli-chat-proxy.grok.com/v1/billing?format=credits'],
+  openrouter: { origin: 'https://openrouter.ai', url: 'https://openrouter.ai/api/v1/credits' },
+  'openai-codex': { origin: 'https://chatgpt.com', url: 'https://chatgpt.com/backend-api/wham/usage' },
+  deepseek: { origin: 'https://api.deepseek.com', url: 'https://api.deepseek.com/user/balance' },
+  moonshotai: { origin: 'https://api.moonshot.ai', url: 'https://api.moonshot.ai/v1/users/me/balance' },
+  'moonshotai-cn': { origin: 'https://api.moonshot.cn', url: 'https://api.moonshot.cn/v1/users/me/balance' },
+  zai: { origin: 'https://api.z.ai', url: 'https://api.z.ai/api/monitor/usage/quota/limit' },
+  'zai-coding-cn': { origin: 'https://open.bigmodel.cn', url: 'https://open.bigmodel.cn/api/monitor/usage/quota/limit' },
+  anthropic: { origin: 'https://api.anthropic.com', url: 'https://api.anthropic.com/api/oauth/usage' },
+  xai: { origin: 'https://api.x.ai', url: 'https://cli-chat-proxy.grok.com/v1/billing?format=credits' },
 };
 
 function remainingPercent(used) {
@@ -20,10 +20,10 @@ export async function getQuota(model, modelRegistry, fetchImpl = fetch) {
   const provider = model && providers[model.provider];
   if (!provider) return UNAVAILABLE;
   try {
-    if (new URL(model.baseUrl).origin !== provider[0]) return UNAVAILABLE;
+    if (new URL(model.baseUrl).origin !== provider.origin) return UNAVAILABLE;
     if (['anthropic', 'xai'].includes(model.provider) && !modelRegistry.isUsingOAuth(model)) return UNAVAILABLE;
     const auth = await modelRegistry.getApiKeyAndHeaders(model);
-    if (!auth.ok || !auth.apiKey || (auth.baseUrl && new URL(auth.baseUrl).origin !== provider[0])) return UNAVAILABLE;
+    if (!auth.ok || !auth.apiKey || (auth.baseUrl && new URL(auth.baseUrl).origin !== provider.origin)) return UNAVAILABLE;
     const headers = { Authorization: ['zai', 'zai-coding-cn'].includes(model.provider) ? auth.apiKey : `Bearer ${auth.apiKey}` };
     if (model.provider === 'anthropic') {
       headers['anthropic-beta'] = 'oauth-2025-04-20';
@@ -35,7 +35,7 @@ export async function getQuota(model, modelRegistry, fetchImpl = fetch) {
       if (typeof accountId !== 'string' || !accountId) return UNAVAILABLE;
       headers['ChatGPT-Account-Id'] = accountId;
     }
-    const response = await fetchImpl(provider[1], {
+    const response = await fetchImpl(provider.url, {
       headers,
       signal: AbortSignal.timeout(10_000),
     });
@@ -62,7 +62,7 @@ export async function getQuota(model, modelRegistry, fetchImpl = fetch) {
       if (remaining === undefined && config.creditUsagePercent === undefined) {
         const { currentPeriod, productUsage } = config;
         if (Date.parse(currentPeriod.start) < Date.parse(currentPeriod.end) &&
-            (productUsage === undefined || (Array.isArray(productUsage) && productUsage.every((item) => item?.usagePercent === 0)))) remaining = 100;
+            Array.isArray(productUsage) && productUsage.length > 0 && productUsage.every((item) => item?.usagePercent === 0)) remaining = 100;
       }
       return remaining === undefined ? UNAVAILABLE : `Remaining quota: 7d ${remaining}%`;
     }

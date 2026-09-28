@@ -27,9 +27,14 @@ export function registerNotifications(pi, agentDir, token, fetchImpl = fetch) {
     startLeafId = undefined;
     const chatId = loadChatId(agentDir);
     if (!chatId || !response) return;
+    let quota;
     try {
       const model = ctx.modelRegistry?.find(response.provider, response.modelId);
-      const quota = await getQuota(model, ctx.modelRegistry, fetchImpl);
+      quota = await getQuota(model, ctx.modelRegistry, fetchImpl);
+    } catch {
+      quota = 'Quota unavailable';
+    }
+    try {
       await sendTelegram(token, chatId,
         formatNotification(new Date().toISOString(), response, quota), fetchImpl);
     } catch {
