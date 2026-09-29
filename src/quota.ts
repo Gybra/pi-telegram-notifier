@@ -20,9 +20,11 @@ function remainingPercent(used: unknown): number | undefined {
   return typeof used === 'number' && Number.isFinite(used) && used >= 0 && used <= 100 ? 100 - used : undefined;
 }
 
-export async function getQuota(model: Model | undefined, modelRegistry: Pick<ModelRegistry, 'getApiKeyAndHeaders' | 'isUsingOAuth'> | undefined, fetchImpl: typeof fetch = fetch): Promise<string> {
+export async function getQuota(model: Model | undefined, modelRegistry: Pick<ModelRegistry, 'find' | 'getApiKeyAndHeaders' | 'isUsingOAuth'> | undefined, fetchImpl: typeof fetch = fetch): Promise<string> {
+  // pi-claude-bridge has no credential of its own; it draws on the same Claude subscription as Pi's Anthropic OAuth login.
+  if (model?.provider === 'claude-bridge') model = modelRegistry?.find('anthropic', model.id);
   const provider = model && providers[model.provider];
-  if (!provider) return UNAVAILABLE;
+  if (!model || !provider) return UNAVAILABLE;
   try {
     if (new URL(model.baseUrl).origin !== provider.origin) return UNAVAILABLE;
     if (['anthropic', 'xai'].includes(model.provider) && !modelRegistry?.isUsingOAuth(model)) return UNAVAILABLE;
