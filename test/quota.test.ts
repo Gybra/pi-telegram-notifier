@@ -21,7 +21,7 @@ const models = {
   anthropic: { provider: 'anthropic', id: 'claude-test', baseUrl: 'https://api.anthropic.com' },
   xai: { provider: 'xai', id: 'grok-test', baseUrl: 'https://api.x.ai/v1' },
 } as unknown as Record<string, Model>;
-const registry = { getApiKeyAndHeaders: async () => ({ ok: true as const, apiKey: 'secret' }), isUsingOAuth: () => false };
+const registry = { find: () => undefined, getApiKeyAndHeaders: async () => ({ ok: true as const, apiKey: 'secret' }), isUsingOAuth: () => false };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 
 test('Telegram quota labels and day units are English while values remain unchanged', async () => {
@@ -124,6 +124,26 @@ test('Anthropic OAuth shows real subscription windows, not API key usage', async
   }), 'Remaining quota: 5h 75.5%, 7d 40%');
 });
 
+test('Claude bridge models use the same Claude subscription quota through Pi Anthropic OAuth', async () => {
+  const bridge = { provider: 'claude-bridge', id: 'claude-test', baseUrl: 'claude-bridge' } as unknown as Model;
+  const oauth = {
+    find: (provider: string, id: string) => provider === 'anthropic' && id === 'claude-test' ? models.anthropic : undefined,
+    getApiKeyAndHeaders: async (model: Model) => {
+      assert.equal(model, models.anthropic);
+      return { ok: true as const, apiKey: 'secret' };
+    },
+    isUsingOAuth: (model: Model) => model === models.anthropic,
+  };
+  assert.equal(await getQuota(bridge, oauth, async (url, options) => {
+    assert.equal(url, 'https://api.anthropic.com/api/oauth/usage');
+    assert.equal(new Headers(options?.headers).get('Authorization'), 'Bearer secret');
+    return json({ five_hour: { utilization: 10 }, seven_day: { utilization: 30 } });
+  }), 'Remaining quota: 5h 90%, 7d 70%');
+  const noRequest = async () => { throw new Error('must not send credential'); };
+  assert.equal(await getQuota(bridge, { ...oauth, isUsingOAuth: () => false }, noRequest), 'Quota unavailable');
+  assert.equal(await getQuota(bridge, { ...oauth, find: () => undefined }, noRequest), 'Quota unavailable');
+});
+
 test('xAI OAuth reports remaining Grok weekly subscription credits, not prepaid API balance', async () => {
   const oauth = { ...registry, isUsingOAuth: () => true };
   assert.equal(await getQuota(models.xai, oauth, async (url, options) => {
@@ -208,7 +228,7 @@ test('provider lookup failure cannot suppress Telegram delivery', async () => {
     const entries: Array<{ type: string; id: string; message: unknown }> = [{ type: 'message', id: 'user', message: { role: 'user', content: 'question' } }];
     const ctx = {
       sessionManager: { getLeafId: () => 'user', getBranch: () => entries },
-      modelRegistry: { find: () => models.openrouter, ...registry },
+      modelRegistry: { ...registry, find: () => models.openrouter },
       hasUI: false,
     };
     await handlers.get('agent_start')!({}, ctx);

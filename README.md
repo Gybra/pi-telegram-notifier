@@ -41,6 +41,7 @@ The **quota/credit** field supports these Pi provider IDs (using the credential 
 | --- | --- | --- | --- |
 | `openai-codex` | Subscription | ChatGPT OAuth | Remaining 5h / 7d usage-window percentages; [official Codex client endpoint](https://github.com/openai/codex/blob/main/codex-rs/backend-client/src/client/rate_limit_resets.rs). |
 | `anthropic` | Subscription | Claude OAuth | Remaining 5h / 7d usage-window percentages; [private OAuth endpoint](https://github.com/openclaw/openclaw/blob/main/src/infra/provider-usage.fetch.claude.ts). |
+| `claude-bridge` ([pi-claude-bridge](https://www.npmjs.com/package/pi-claude-bridge)) | Subscription | Pi's Claude OAuth (`/login` → Anthropic) | Same 5h / 7d windows as `anthropic`: the bridge has no credential of its own, so the matching `anthropic` model's OAuth login is used. Without it, `Quota unavailable`. |
 | `xai` | Subscription | Grok OAuth | Remaining weekly shared Grok credits percentage, **not** prepaid API credit; [official Grok client endpoint](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/src/extensions/billing.rs). |
 | `zai` | Subscription (Coding Plan) | Z.ai Coding Plan key | Remaining 5h **model** quota percentage; [Z.ai usage plugin endpoint](https://github.com/zai-org/zai-coding-plugins/blob/main/plugins/glm-plan-usage/skills/usage-query-skill/scripts/query-usage.mjs). Not the separate MCP tool quota. |
 | `zai-coding-cn` | Subscription (Coding Plan) | China Coding Plan key | Same model quota on `open.bigmodel.cn`. |
