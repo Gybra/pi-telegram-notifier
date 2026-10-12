@@ -13,6 +13,7 @@ type Model = NonNullable<ReturnType<ModelRegistry['find']>>;
 const models = {
   openrouter: { provider: 'openrouter', id: 'test', baseUrl: 'https://openrouter.ai/api' },
   'openai-codex': { provider: 'openai-codex', id: 'gpt-5.6', baseUrl: 'https://chatgpt.com/backend-api' },
+  openai: { provider: 'openai', id: 'gpt-5.6', baseUrl: 'https://api.openai.com/v1' },
   deepseek: { provider: 'deepseek', id: 'test', baseUrl: 'https://api.deepseek.com' },
   moonshotai: { provider: 'moonshotai', id: 'test', baseUrl: 'https://api.moonshot.ai/v1' },
   'moonshotai-cn': { provider: 'moonshotai-cn', id: 'test', baseUrl: 'https://api.moonshot.cn/v1' },
@@ -60,6 +61,52 @@ test('Codex OAuth shows remaining five-hour and weekly subscription quotas', asy
       secondary_window: { used_percent: 60, limit_window_seconds: 604800 },
     } });
   }), 'Remaining quota: 5h 77%, 7d 40%');
+});
+
+test('OpenAI ChatGPT OAuth reports the separately authenticated Codex login quota', async () => {
+  const payload = Buffer.from(JSON.stringify({ 'https://api.openai.com/auth': { chatgpt_account_id: 'acct-test' } })).toString('base64url');
+  const token = `e30.${payload}.signature`;
+  const oauth = {
+    ...registry,
+    find: (provider: string, id: string) => provider === 'openai-codex' && id === models.openai.id ? models['openai-codex'] : undefined,
+    isUsingOAuth: () => true,
+    getApiKeyAndHeaders: async (model: Model) => ({ ok: true as const, apiKey: model.provider === 'openai' ? 'direct-token' : token }),
+  };
+  const requests: Array<{ url: string; headers: Headers }> = [];
+  const quota = await getQuota(models.openai, oauth, async (url, options) => {
+    requests.push({ url: String(url), headers: new Headers(options?.headers) });
+    return json({ rate_limit: {
+      primary_window: { used_percent: 5, limit_window_seconds: 604800 }, secondary_window: null,
+    } });
+  });
+  assert.equal(quota, 'Remaining quota: 7d 95% (Codex login)');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, 'https://chatgpt.com/backend-api/wham/usage');
+  assert.equal(requests[0].headers.get('Authorization'), `Bearer ${token}`);
+  assert.equal(requests[0].headers.get('ChatGPT-Account-Id'), 'acct-test');
+  assert.equal(await getQuota(models.openai, oauth, async () => json({}, 401)), 'Quota unavailable');
+});
+
+test('OpenAI API keys, proxies and missing Codex OAuth never request another login quota', async () => {
+  const oauth = {
+    ...registry,
+    find: () => models['openai-codex'],
+    isUsingOAuth: () => true,
+  };
+  let requests = 0;
+  const request: typeof fetch = async () => { requests++; return json({}); };
+  for (const unavailable of [
+    { ...oauth, isUsingOAuth: () => false },
+    { ...oauth, isUsingOAuth: (model: Model) => model.provider === 'openai' },
+    { ...oauth, find: () => undefined },
+    { ...oauth, getApiKeyAndHeaders: async () => ({ ok: false as const, error: 'unavailable' }) },
+    { ...oauth, getApiKeyAndHeaders: async () => ({ ok: true as const }) },
+    { ...oauth, getApiKeyAndHeaders: async () => ({ ok: true as const, apiKey: 'secret', baseUrl: 'https://proxy.example/v1' }) },
+    { ...oauth, find: () => { throw new Error('lookup failed'); } },
+  ]) assert.equal(await getQuota(models.openai, unavailable, request), 'Quota unavailable');
+  assert.equal(await getQuota({ ...models.openai, baseUrl: 'https://proxy.example/v1' }, oauth, request), 'Quota unavailable');
+  assert.equal(await getQuota({ ...models.openai, baseUrl: 'invalid' }, oauth, request), 'Quota unavailable');
+  assert.equal(requests, 0);
 });
 
 test('Codex invalid token, denied endpoint or invalid quota cannot show a percentage', async () => {

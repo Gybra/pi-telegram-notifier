@@ -23,6 +23,20 @@ function remainingPercent(used: unknown): number | undefined {
 export async function getQuota(model: Model | undefined, modelRegistry: Pick<ModelRegistry, 'find' | 'getApiKeyAndHeaders' | 'isUsingOAuth'> | undefined, fetchImpl: typeof fetch = fetch): Promise<string> {
   // pi-claude-bridge has no credential of its own; it draws on the same Claude subscription as Pi's Anthropic OAuth login.
   if (model?.provider === 'claude-bridge') model = modelRegistry?.find('anthropic', model.id);
+  if (model?.provider === 'openai') {
+    try {
+      if (new URL(model.baseUrl).origin !== 'https://api.openai.com' || !modelRegistry?.isUsingOAuth(model)) return UNAVAILABLE;
+      const auth = await modelRegistry.getApiKeyAndHeaders(model);
+      if (!auth.ok || !auth.apiKey || (auth.baseUrl && new URL(auth.baseUrl).origin !== 'https://api.openai.com')) return UNAVAILABLE;
+      // shortcut: reports legacy Codex quota, replace when SIWC exposes a supported quota endpoint.
+      const codex = modelRegistry.find('openai-codex', model.id);
+      if (!codex || codex.provider !== 'openai-codex' || !modelRegistry.isUsingOAuth(codex)) return UNAVAILABLE;
+      const quota = await getQuota(codex, modelRegistry, fetchImpl);
+      return quota === UNAVAILABLE ? quota : `${quota} (Codex login)`;
+    } catch {
+      return UNAVAILABLE;
+    }
+  }
   const provider = model && providers[model.provider];
   if (!model || !provider) return UNAVAILABLE;
   try {
