@@ -34,6 +34,12 @@ You MUST use clear names, straightforward control flow, and familiar patterns. D
 
 Make the intent easy to understand for someone reviewing or maintaining the code. Remove duplication and unnecessary structure, but keep boundaries that make the code clearer.
 
+## Keep Exported Types in Domain Type Modules
+
+You MUST declare every exported `type` and `interface` in the types module of its domain, `src/types/<domain>.ts` (for example `src/types/bridge.ts`), never in a file that also exports functions, classes, or values. Import it directly from that module with `import type`.
+
+Group types by domain, not one file per type. A type used by only one file stays in that file, unexported.
+
 ## pi-telegram-notifier constraints
 
 - Keep bot and provider credentials out of tracked files, logs, errors, and test fixtures containing real values. Read the bot token from `PI_TELEGRAM_BOT_TOKEN`, and provider credentials through Pi's model registry.
